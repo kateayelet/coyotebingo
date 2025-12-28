@@ -35,25 +35,34 @@ const WINNING_LINES = [
 ];
 
 const VICTORY_MESSAGES = [
-  "YOU'VE WITNESSED PEAK COEXISTENCE DISCOURSE!",
-  "YOUR NEIGHBORHOOD IS OFFICIALLY GASLIGHTING YOU!",
-  "CONGRATULATIONS, YOUR GRIEF HAS BEEN DISMISSED!",
-  "YOU MAY NOW SAY 'I TOLD YOU SO' AT TOWN HALL!",
-  "THE COYOTES SEND THEIR REGARDS!"
+  "You've Witnessed Peak Coexistence Discourse!",
+  "Your Neighborhood is Officially Gaslighting You!",
+  "Congratulations, Your Grief Has Been Dismissed!",
+  "You May Now Say 'I Told You So' at Town Hall!",
+  "The Coyotes Send Their Regards!"
 ];
 
 const LOCATIONS = [
-  "NEXTDOOR THREAD", "CITY COUNCIL MEETING", "SCHOOL BUS STOP", "HOA MEETING",
-  "FACEBOOK GROUP", "NEIGHBORHOOD WALK", "TOWN HALL", "PTA MEETING"
+  "Nextdoor Thread", "City Council Meeting", "School Bus Stop", "HOA Meeting",
+  "Facebook Group", "Neighborhood Walk", "Town Hall", "PTA Meeting"
 ];
 
-// Comic color palette with Ben-Day dot combos
-const COMIC_COLORS = [
-  { bg: '#FFD700', dot: '#FFA500' }, // Yellow with orange dots
-  { bg: '#FF3333', dot: '#CC0000' }, // Red with dark red dots
-  { bg: '#00BFFF', dot: '#0080FF' }, // Cyan with blue dots
-  { bg: '#FFD700', dot: '#FFA500' }, // Yellow
-  { bg: '#FF3333', dot: '#CC0000' }, // Red
+const COMICS = [
+  { id: 'coyote-cops', path: '/comics/coyote-cops.png', name: 'Coyote Cops' },
+  { id: 'binder-shuffle', path: '/comics/binder-shuffle.jpg', name: 'Binder Shuffle' },
+  { id: 'land-rights', path: '/comics/land-rights.jpg', name: 'Land Rights' },
+  { id: 'protect-serve', path: '/comics/protect-and-serve.jpg', name: 'Protect and Serve' },
+  { id: 'trickle-down', path: '/comics/trickle-down-ecology.png', name: 'Trickle-Down Ecology' },
+  { id: 'mystery', path: '/comics/mystery-comic.png', name: 'Mystery Comic' }
+];
+
+// CMYK Bingo Colors - one for each column
+const COLUMN_COLORS = [
+  '#00B8D4', // B - Cyan
+  '#E91E63', // I - Magenta
+  '#FFC107', // N - Yellow
+  '#4CAF50', // G - Green
+  '#FF5722', // O - Orange
 ];
 
 export default function CoyoteBingo() {
@@ -63,8 +72,27 @@ export default function CoyoteBingo() {
   const [victoryMessage, setVictoryMessage] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [copied, setCopied] = useState(false);
-  const [powSquare, setPowSquare] = useState(null);
+  const [unlockedComics, setUnlockedComics] = useState([]);
+  const [currentComic, setCurrentComic] = useState(null);
+  const [showGallery, setShowGallery] = useState(false);
+  const [animatingSquare, setAnimatingSquare] = useState(null);
 
+  // Load unlocked comics from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('coyoteBingoComics');
+    if (stored) {
+      setUnlockedComics(JSON.parse(stored));
+    }
+  }, []);
+
+  // Save unlocked comics to localStorage
+  useEffect(() => {
+    if (unlockedComics.length > 0) {
+      localStorage.setItem('coyoteBingoComics', JSON.stringify(unlockedComics));
+    }
+  }, [unlockedComics]);
+
+  // Check for bingo
   useEffect(() => {
     for (const line of WINNING_LINES) {
       if (line.every(idx => marked.has(idx))) {
@@ -72,44 +100,34 @@ export default function CoyoteBingo() {
           setHasBingo(true);
           setWinningLine(new Set(line));
           setVictoryMessage(VICTORY_MESSAGES[Math.floor(Math.random() * VICTORY_MESSAGES.length)]);
+          
+          // Select a random comic that hasn't been unlocked yet
+          const lockedComics = COMICS.filter(c => !unlockedComics.includes(c.id));
+          if (lockedComics.length > 0) {
+            const newComic = lockedComics[Math.floor(Math.random() * lockedComics.length)];
+            setCurrentComic(newComic);
+            setUnlockedComics(prev => [...prev, newComic.id]);
+          } else {
+            // All comics unlocked, show a random one
+            const randomComic = COMICS[Math.floor(Math.random() * COMICS.length)];
+            setCurrentComic(randomComic);
+          }
         }
         return;
       }
     }
-  }, [marked, hasBingo]);
-
-  // Inject keyframes for POW animation
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes popIn {
-        0% { transform: scale(0) rotate(-20deg); opacity: 0; }
-        50% { transform: scale(1.3) rotate(10deg); opacity: 1; }
-        100% { transform: scale(1) rotate(-5deg); opacity: 0; }
-      }
-      @keyframes blink {
-        0%, 90%, 100% { opacity: 0.8; }
-        95% { opacity: 0; }
-      }
-      [data-pos="top-left"] { top: 12%; left: 3%; }
-      [data-pos="top-right"] { top: 8%; right: 12%; }
-      [data-pos="bottom-left"] { bottom: 25%; left: 4%; }
-      [data-pos="bottom-right"] { bottom: 15%; right: 3%; }
-    `;
-    document.head.appendChild(style);
-    return () => document.head.removeChild(style);
-  }, []);
+  }, [marked, hasBingo, unlockedComics]);
 
   const toggleSquare = (idx) => {
-    if (idx === 12) return;
+    if (idx === 12) return; // Free space
     const newMarked = new Set(marked);
     if (newMarked.has(idx)) {
       newMarked.delete(idx);
     } else {
       newMarked.add(idx);
-      // Trigger POW animation
-      setPowSquare(idx);
-      setTimeout(() => setPowSquare(null), 400);
+      // Trigger animation
+      setAnimatingSquare(idx);
+      setTimeout(() => setAnimatingSquare(null), 400);
     }
     setMarked(newMarked);
   };
@@ -120,200 +138,225 @@ export default function CoyoteBingo() {
     setWinningLine(null);
     setSelectedLocation('');
     setCopied(false);
+    setCurrentComic(null);
   };
 
   const shareResult = () => {
-    const text = `💥 WHAM! I got COYOTE APOLOGIST BINGO${selectedLocation ? ` at a ${selectedLocation}` : ''}!\n\nThe gaslighting is REAL.\n\n#CoyoteBingo #Coexistence`;
+    const comicText = currentComic ? ` and unlocked "${currentComic.name}"` : '';
+    const locationText = selectedLocation ? ` at a ${selectedLocation}` : '';
+    const text = `🎉 I got COYOTE APOLOGIST BINGO${comicText}${locationText}!\n\nThe gaslighting is REAL.\n\n#CoyoteBingo`;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
   };
 
-  const getBenDayPattern = (idx, isMarked, isWinning, isFreeSpace) => {
-    if (isWinning) return 'repeating-radial-gradient(circle at 3px 3px, #000 0px, #000 1.5px, #00FF00 1.5px, #00FF00 6px)';
-    if (isMarked) return 'repeating-radial-gradient(circle at 3px 3px, #000 0px, #000 1.5px, #FFFF00 1.5px, #FFFF00 6px)';
-    if (isFreeSpace) return 'repeating-radial-gradient(circle at 3px 3px, #660000 0px, #660000 1.5px, #FF3333 1.5px, #FF3333 6px)';
-    
-    const patterns = [
-      'repeating-radial-gradient(circle at 3px 3px, #CC9900 0px, #CC9900 1.5px, #FFD700 1.5px, #FFD700 6px)',
-      'repeating-radial-gradient(circle at 3px 3px, #990000 0px, #990000 1.5px, #FF3333 1.5px, #FF3333 6px)',
-      'repeating-radial-gradient(circle at 3px 3px, #006699 0px, #006699 1.5px, #00BFFF 1.5px, #00BFFF 6px)',
-    ];
-    return patterns[idx % patterns.length];
+  const getColumnColor = (idx) => {
+    const col = idx % 5;
+    return COLUMN_COLORS[col];
   };
 
   return (
     <div style={styles.container}>
-      {/* Paper texture overlay */}
-      <div style={styles.paperTexture} />
-      
-      {/* Coyote eyes in the darkness */}
-      <div style={styles.coyoteEyes}>
-        <div style={{...styles.eyePair, top: '8%', left: '3%'}}><span style={styles.eye}>👁</span><span style={styles.eye}>👁</span></div>
-        <div style={{...styles.eyePair, top: '25%', right: '2%'}}><span style={styles.eye}>👁</span><span style={styles.eye}>👁</span></div>
-        <div style={{...styles.eyePair, bottom: '30%', left: '1%'}}><span style={styles.eye}>👁</span><span style={styles.eye}>👁</span></div>
-        <div style={{...styles.eyePair, bottom: '15%', right: '4%'}}><span style={styles.eye}>👁</span><span style={styles.eye}>👁</span></div>
-        <div style={{...styles.eyePair, top: '60%', left: '2%'}}><span style={styles.eye}>👁</span><span style={styles.eye}>👁</span></div>
-      </div>
-      
-      {/* Action lines background */}
-      <div style={styles.actionLines} />
-
-      {/* Coyote eyes watching from the darkness */}
-      <div style={styles.eyePair} data-pos="top-left">
-        <div style={styles.eye} /><div style={styles.eye} />
-      </div>
-      <div style={styles.eyePair} data-pos="top-right">
-        <div style={styles.eye} /><div style={styles.eye} />
-      </div>
-      <div style={styles.eyePair} data-pos="bottom-left">
-        <div style={styles.eye} /><div style={styles.eye} />
-      </div>
-      <div style={styles.eyePair} data-pos="bottom-right">
-        <div style={styles.eye} /><div style={styles.eye} />
-      </div>
-
-      {/* WHAM! burst */}
-      <div style={styles.whamBurst}>
-        <span style={styles.whamText}>WHAM!</span>
-      </div>
+      <style>
+        {`
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+          
+          @keyframes dauberPop {
+            0% { transform: scale(0); opacity: 0; }
+            50% { transform: scale(1.1); opacity: 0.9; }
+            100% { transform: scale(1); opacity: 0.75; }
+          }
+          
+          @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(76, 175, 80, 0.6); }
+            50% { box-shadow: 0 0 30px rgba(76, 175, 80, 0.9); }
+          }
+          
+          .square-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+          }
+          
+          .comic-thumbnail {
+            cursor: pointer;
+            transition: transform 0.2s;
+          }
+          
+          .comic-thumbnail:hover {
+            transform: scale(1.05);
+          }
+        `}
+      </style>
 
       <header style={styles.header}>
-        {/* Speech bubble */}
-        <div style={styles.speechBubble}>
-          <span style={styles.speechText}>🐺 THE OFFICIAL</span>
-          <div style={styles.speechTail} />
-        </div>
-        
-        <h1 style={styles.title}>COYOTE APOLOGIST</h1>
-        <h2 style={styles.subtitle}>BINGO!</h2>
-        <p style={styles.tagline}>★ TAP SQUARES AS YOU HEAR THEM ★ GET 5 IN A ROW TO WIN ★</p>
+        <h1 style={styles.title}>Coyote Apologist Bingo</h1>
+        <p style={styles.subtitle}>Tap squares as you hear them • Get 5 in a row to win</p>
+        <button 
+          style={styles.galleryButton}
+          onClick={() => setShowGallery(true)}
+        >
+          🎨 View Comics ({unlockedComics.length}/{COMICS.length})
+        </button>
       </header>
 
       <div style={styles.gridContainer}>
-        {/* Comic panel border */}
-        <div style={styles.panelBorder}>
-          <div style={styles.grid}>
-            {BINGO_SQUARES.map((text, idx) => {
-              const isMarked = marked.has(idx);
-              const isWinning = winningLine?.has(idx);
-              const isFreeSpace = idx === 12;
-              
-              return (
-                <button
-                  key={idx}
-                  onClick={() => toggleSquare(idx)}
-                  style={{
-                    ...styles.square,
-                    background: getBenDayPattern(idx, isMarked, isWinning, isFreeSpace),
-                    transform: isMarked 
-                      ? `rotate(${idx % 2 === 0 ? -2 : 2}deg) scale(0.97)` 
-                      : `rotate(${idx % 2 === 0 ? -1 : 1}deg) scale(1)`,
-                    borderRadius: `${3 + (idx % 3)}px ${6 - (idx % 4)}px ${4 + (idx % 2)}px ${2 + (idx % 5)}px`,
-                  }}
-                >
-                  {isFreeSpace ? (
-                    <div style={styles.freeSquare}>
-                      <div style={styles.badgeOuter}>
-                        <div style={styles.badgeInner}>
-                          <span style={styles.badgeFree}>FREE</span>
-                          <span style={styles.badgeText}>COYOTES HAVE RIGHTS TOO</span>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div style={styles.squareInner}>
-                      <span style={styles.squareText}>{text}</span>
-                      {idx % 4 === 0 && (
-                        <div style={{...styles.speechTail, ...styles.speechTailLeft}} />
-                      )}
-                      {idx % 4 === 2 && (
-                        <div style={{...styles.speechTail, ...styles.speechTailRight}} />
-                      )}
-                    </div>
-                  )}
-                  
-                  {isMarked && !isFreeSpace && (
-                    <div style={styles.kapowContainer}>
-                      <div style={styles.kapowBurst}>
-                        <span style={styles.kapowX}>✗</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {powSquare === idx && (
-                    <div style={styles.powAnimation}>
-                      <span style={styles.powText}>POW!</span>
-                    </div>
-                  )}
-                  
-                  {/* Speech bubble tail on select squares */}
-                  {[1, 4, 7, 11, 14, 18, 21, 24].includes(idx) && !isFreeSpace && (
-                    <div style={{
-                      position: 'absolute',
-                      width: 0,
-                      height: 0,
-                      borderTop: '8px solid transparent',
-                      borderBottom: '8px solid transparent',
-                      ...(idx % 2 === 0 
-                        ? { left: '-10px', borderRight: '10px solid #000' }
-                        : { right: '-10px', borderLeft: '10px solid #000' }
-                      ),
-                      bottom: `${15 + (idx % 3) * 10}%`,
-                      zIndex: 1,
-                    }} />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+        <div style={styles.bingoLabels}>
+          {['B', 'I', 'N', 'G', 'O'].map((letter, i) => (
+            <div 
+              key={letter} 
+              style={{
+                ...styles.bingoLetter,
+                color: COLUMN_COLORS[i]
+              }}
+            >
+              {letter}
+            </div>
+          ))}
+        </div>
+        
+        <div style={styles.grid}>
+          {BINGO_SQUARES.map((text, idx) => {
+            const isMarked = marked.has(idx);
+            const isWinning = winningLine?.has(idx);
+            const isFreeSpace = idx === 12;
+            const columnColor = getColumnColor(idx);
+            
+            return (
+              <button
+                key={idx}
+                onClick={() => toggleSquare(idx)}
+                className="square-button"
+                style={{
+                  ...styles.square,
+                  borderColor: columnColor,
+                  ...(isWinning && styles.winningSquare)
+                }}
+              >
+                <span style={styles.squareText}>{isFreeSpace ? 'FREE SPACE' : text}</span>
+                
+                {isMarked && (
+                  <div 
+                    style={{
+                      ...styles.dauber,
+                      backgroundColor: columnColor,
+                      animation: animatingSquare === idx ? 'dauberPop 0.4s ease-out' : 'none'
+                    }}
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
+      <footer style={styles.footer}>
+        <p style={styles.footerText}>
+          A Public Service of the <strong>Dept. of Wildlife Gaslighting</strong>
+        </p>
+        <p style={styles.disclaimer}>Your grief is valid • The coyotes are real</p>
+        <button style={styles.resetButton} onClick={resetGame}>
+          Reset Card ({marked.size - 1}/24 marked)
+        </button>
+      </footer>
+
+      {/* Bingo Victory Modal */}
       {hasBingo && (
-        <div style={styles.modalOverlay}>
+        <div style={styles.modalOverlay} onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            setHasBingo(false);
+            resetGame();
+          }
+        }}>
           <div style={styles.modal}>
-            {/* Starburst behind BINGO */}
-            <div style={styles.starburst}>
-              <div style={styles.starburstInner}>
-                <span style={styles.bingoText}>BINGO!</span>
-              </div>
-            </div>
-            
+            <h2 style={styles.bingoTitle}>🎉 BINGO! 🎉</h2>
             <p style={styles.victoryText}>{victoryMessage}</p>
+            
+            {currentComic && (
+              <div style={styles.comicDisplay}>
+                <h3 style={styles.comicUnlockedText}>You unlocked:</h3>
+                <img 
+                  src={currentComic.path} 
+                  alt={currentComic.name}
+                  style={styles.comicImage}
+                />
+                <p style={styles.comicName}>{currentComic.name}</p>
+              </div>
+            )}
             
             <select 
               style={styles.select}
               value={selectedLocation}
               onChange={(e) => setSelectedLocation(e.target.value)}
             >
-              <option value="">— WHERE DID THIS HAPPEN? —</option>
+              <option value="">— Where did this happen? —</option>
               {LOCATIONS.map(loc => (
                 <option key={loc} value={loc}>{loc}</option>
               ))}
             </select>
             
             <button style={styles.shareButton} onClick={shareResult}>
-              {copied ? '✓ COPIED!' : '📢 SHARE YOUR BINGO!'}
+              {copied ? '✓ Copied!' : '📢 Share Your Bingo'}
             </button>
             
-            <button style={styles.resetButton} onClick={resetGame}>
-              ↻ PLAY AGAIN
+            <button style={styles.playAgainButton} onClick={resetGame}>
+              ↻ Play Again
             </button>
           </div>
         </div>
       )}
 
-      <footer style={styles.footer}>
-        <p style={styles.footerText}>
-          ★ A PUBLIC SERVICE OF THE <strong>DEPT. OF WILDLIFE GASLIGHTING</strong> ★
-        </p>
-        <p style={styles.disclaimer}>YOUR GRIEF IS VALID • THE COYOTES ARE REAL</p>
-        <button style={styles.resetSmall} onClick={resetGame}>
-          RESET CARD ({marked.size - 1}/24)
-        </button>
-      </footer>
+      {/* Comic Gallery Modal */}
+      {showGallery && (
+        <div style={styles.modalOverlay} onClick={(e) => {
+          if (e.target === e.currentTarget) setShowGallery(false);
+        }}>
+          <div style={{...styles.modal, maxWidth: '600px'}}>
+            <h2 style={styles.galleryTitle}>Comic Collection</h2>
+            <p style={styles.gallerySubtitle}>
+              {unlockedComics.length}/{COMICS.length} Comics Unlocked
+            </p>
+            
+            <div style={styles.comicGrid}>
+              {COMICS.map(comic => {
+                const isUnlocked = unlockedComics.includes(comic.id);
+                return (
+                  <div 
+                    key={comic.id} 
+                    style={styles.comicThumbnailContainer}
+                    className="comic-thumbnail"
+                  >
+                    {isUnlocked ? (
+                      <>
+                        <img 
+                          src={comic.path} 
+                          alt={comic.name}
+                          style={styles.comicThumbnail}
+                        />
+                        <p style={styles.comicThumbnailName}>{comic.name}</p>
+                      </>
+                    ) : (
+                      <>
+                        <div style={styles.lockedComic}>
+                          <span style={styles.lockIcon}>🔒</span>
+                        </div>
+                        <p style={styles.comicThumbnailName}>Locked</p>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            <button 
+              style={styles.closeButton} 
+              onClick={() => setShowGallery(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -321,438 +364,284 @@ export default function CoyoteBingo() {
 const styles = {
   container: {
     minHeight: '100vh',
-    background: '#1a1a2e',
-    padding: '16px',
-    fontFamily: '"Bangers", "Impact", "Comic Sans MS", cursive',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  paperTexture: {
-    position: 'fixed',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundImage: `radial-gradient(circle, #ffffff30 1.5px, transparent 1.5px)`,
-    backgroundSize: '12px 12px',
-    pointerEvents: 'none',
-    zIndex: 1,
-  },
-  coyoteEyes: {
-    position: 'fixed',
-    top: 0, left: 0, right: 0, bottom: 0,
-    pointerEvents: 'none',
-    zIndex: 0,
-  },
-  eyePair: {
-    position: 'absolute',
-    display: 'flex',
-    gap: '8px',
-    opacity: 0.6,
-    filter: 'drop-shadow(0 0 8px #FFD700)',
-  },
-  eye: {
-    fontSize: '16px',
-    filter: 'hue-rotate(40deg) saturate(3) brightness(1.5)',
-  },
-  actionLines: {
-    display: 'none',
-  },
-  eyePair: {
-    position: 'fixed',
-    display: 'flex',
-    gap: '12px',
-    zIndex: 2,
-    opacity: 0.8,
-    animation: 'blink 4s infinite',
-  },
-  eye: {
-    width: '10px',
-    height: '6px',
-    background: '#FFD700',
-    borderRadius: '50%',
-    boxShadow: '0 0 10px #FFD700, 0 0 20px #FFA500',
-  },
-  whamBurst: {
-    position: 'absolute',
-    top: '8px',
-    right: '8px',
-    width: '80px',
-    height: '80px',
-    background: '#FF3333',
-    border: '5px solid #000',
-    borderRadius: '50% 20% 50% 20% / 20% 50% 20% 50%',
-    transform: 'rotate(15deg)',
-    boxShadow: '4px 4px 0 #000',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  whamText: {
-    color: '#FFD700',
-    fontSize: '18px',
-    fontWeight: 'bold',
-    textShadow: '2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000',
-    transform: 'rotate(-15deg)',
+    background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+    padding: '20px',
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
   },
   header: {
     textAlign: 'center',
-    marginBottom: '12px',
-    position: 'relative',
-    zIndex: 5,
-  },
-  speechBubble: {
-    display: 'inline-block',
-    background: '#FFF',
-    border: '5px solid #000',
-    borderRadius: '30px',
-    padding: '8px 20px',
-    marginBottom: '4px',
-    position: 'relative',
-    boxShadow: '4px 4px 0 #000',
-  },
-  speechTail: {
-    position: 'absolute',
-    bottom: '-20px',
-    left: '50%',
-    marginLeft: '-10px',
-    width: '0',
-    height: '0',
-    borderLeft: '10px solid transparent',
-    borderRight: '10px solid transparent',
-    borderTop: '20px solid #000',
-  },
-  speechText: {
-    fontSize: '16px',
-    color: '#000',
-    fontWeight: 'bold',
-    letterSpacing: '2px',
+    marginBottom: '30px',
   },
   title: {
-    fontSize: 'clamp(28px, 8vw, 56px)',
-    fontWeight: 'bold',
-    color: '#FFD700',
-    margin: '16px 0 0 0',
-    letterSpacing: '3px',
-    textShadow: '5px 5px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 0 6px 0 #CC0000',
-    WebkitTextStroke: '3px #000',
+    fontSize: 'clamp(32px, 6vw, 56px)',
+    fontWeight: '800',
+    color: '#2c3e50',
+    margin: '0 0 10px 0',
+    letterSpacing: '-1px',
   },
   subtitle: {
-    fontSize: 'clamp(48px, 14vw, 96px)',
-    fontWeight: 'bold',
-    color: '#FF3333',
-    margin: '-8px 0 0 0',
-    letterSpacing: '8px',
-    textShadow: '6px 6px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 0 8px 0 #990000',
-    WebkitTextStroke: '4px #000',
+    fontSize: 'clamp(14px, 2vw, 18px)',
+    color: '#546e7a',
+    margin: '0 0 20px 0',
+    fontWeight: '500',
   },
-  tagline: {
-    fontSize: '12px',
-    color: '#FFF',
-    marginTop: '8px',
-    letterSpacing: '3px',
-    fontWeight: 'bold',
-    fontFamily: '"Arial Black", Arial, sans-serif',
+  galleryButton: {
+    padding: '10px 24px',
+    fontSize: '16px',
+    fontWeight: '600',
+    background: '#fff',
+    color: '#2c3e50',
+    border: '2px solid #e0e0e0',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
   },
   gridContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    position: 'relative',
-    zIndex: 5,
+    maxWidth: '600px',
+    margin: '0 auto',
   },
-  panelBorder: {
-    background: '#000',
-    padding: '8px',
-    borderRadius: '4px',
-    boxShadow: '8px 8px 0 rgba(0,0,0,0.3)',
-    maxWidth: '520px',
-    width: '100%',
+  bingoLabels: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(5, 1fr)',
+    gap: '8px',
+    marginBottom: '8px',
+  },
+  bingoLetter: {
+    fontSize: '32px',
+    fontWeight: '800',
+    textAlign: 'center',
+    textShadow: '2px 2px 4px rgba(0,0,0,0.1)',
   },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(5, 1fr)',
-    gap: '6px',
+    gap: '8px',
+    background: '#fff',
+    padding: '16px',
+    borderRadius: '12px',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
   },
   square: {
     aspectRatio: '1',
-    border: '4px solid #000',
-    borderRadius: '3px 8px 5px 6px',
-    padding: '0',
+    background: '#fff',
+    border: '3px solid',
+    borderRadius: '8px',
+    padding: '8px',
     cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
     position: 'relative',
-    transition: 'transform 0.15s ease',
-    boxShadow: '5px 5px 0 #000',
-  },
-  squareInner: {
-    position: 'absolute',
-    inset: '4px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'rgba(255,255,255,0.85)',
-    borderRadius: '2px',
-    border: '2px solid #000',
+    transition: 'all 0.2s',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
   },
   squareText: {
-    fontSize: 'clamp(5px, 1.4vw, 8px)',
-    lineHeight: 1.15,
+    fontSize: 'clamp(8px, 1.5vw, 12px)',
+    lineHeight: 1.3,
     textAlign: 'center',
-    color: '#000',
-    fontWeight: 'bold',
-    fontFamily: '"Arial Black", "Helvetica", sans-serif',
-    padding: '2px',
+    color: '#2c3e50',
+    fontWeight: '600',
+    zIndex: 1,
+    position: 'relative',
   },
-  speechTail: {
+  dauber: {
     position: 'absolute',
-    width: 0,
-    height: 0,
-    borderStyle: 'solid',
-  },
-  speechTailLeft: {
-    bottom: '-12px',
-    left: '20%',
-    borderWidth: '12px 10px 0 10px',
-    borderColor: '#FFD700 transparent transparent transparent',
-    filter: 'drop-shadow(2px 2px 0 #000)',
-  },
-  speechTailRight: {
-    bottom: '-12px',
-    right: '20%',
-    borderWidth: '12px 10px 0 10px',
-    borderColor: '#00BFFF transparent transparent transparent',
-    filter: 'drop-shadow(2px 2px 0 #000)',
-  },
-  kapowContainer: {
-    position: 'absolute',
-    inset: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    inset: '8px',
+    borderRadius: '50%',
+    opacity: 0.75,
     pointerEvents: 'none',
   },
-  kapowBurst: {
-    width: '85%',
-    height: '85%',
-    background: '#FFD700',
-    border: '4px solid #000',
-    borderRadius: '50% 20% 50% 20% / 20% 50% 20% 50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: 'rotate(-8deg)',
-    boxShadow: '3px 3px 0 #000',
+  winningSquare: {
+    animation: 'pulseGlow 1s infinite',
+    borderColor: '#4CAF50 !important',
   },
-  kapowX: {
-    fontSize: 'clamp(20px, 5vw, 32px)',
-    color: '#FF0000',
-    fontWeight: 'bold',
-    textShadow: '3px 3px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000',
-    fontFamily: '"Bangers", cursive',
-  },
-  freeSquare: {
-    position: 'absolute',
-    inset: '2px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'transparent',
-  },
-  badgeOuter: {
-    width: '90%',
-    height: '90%',
-    background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 50%, #FFD700 100%)',
-    clipPath: 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    filter: 'drop-shadow(3px 3px 0 #000)',
-  },
-  badgeInner: {
-    width: '55%',
-    height: '55%',
-    background: '#000',
-    borderRadius: '50%',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '4px',
-  },
-  badgeFree: {
-    fontSize: 'clamp(10px, 2.5vw, 16px)',
-    fontWeight: 'bold',
-    color: '#FFD700',
-    fontFamily: '"Bangers", cursive',
-    letterSpacing: '2px',
-  },
-  badgeText: {
-    fontSize: 'clamp(3px, 0.8vw, 5px)',
-    lineHeight: 1.1,
+  footer: {
     textAlign: 'center',
-    color: '#FFD700',
-    fontWeight: 'bold',
-    fontFamily: '"Arial Black", "Helvetica", sans-serif',
-    marginTop: '2px',
+    marginTop: '40px',
+    color: '#546e7a',
   },
-  powAnimation: {
-    position: 'absolute',
-    inset: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: '#FF3333',
-    border: '4px solid #000',
-    borderRadius: '50% 20% 50% 20% / 20% 50% 20% 50%',
-    animation: 'popIn 0.4s ease-out forwards',
-    zIndex: 20,
+  footerText: {
+    fontSize: '14px',
+    margin: '0 0 8px 0',
   },
-  powText: {
-    fontSize: 'clamp(16px, 4vw, 28px)',
-    fontWeight: 'bold',
-    color: '#FFD700',
-    fontFamily: '"Bangers", cursive',
-    textShadow: '3px 3px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000',
-    letterSpacing: '2px',
+  disclaimer: {
+    fontSize: '16px',
+    fontWeight: '700',
+    color: '#2c3e50',
+    margin: '8px 0 20px 0',
   },
-  speechTailSquare: {
-    position: 'absolute',
-    width: 0,
-    height: 0,
-    borderTop: '8px solid transparent',
-    borderBottom: '8px solid transparent',
-    borderRight: '10px solid #000',
-    zIndex: 1,
+  resetButton: {
+    padding: '10px 20px',
+    fontSize: '14px',
+    background: 'transparent',
+    color: '#546e7a',
+    border: '2px solid #546e7a',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: '600',
+    transition: 'all 0.2s',
   },
   modalOverlay: {
     position: 'fixed',
-    top: 0, left: 0, right: 0, bottom: 0,
-    background: 'repeating-radial-gradient(circle at 4px 4px, #000 0px, #000 2px, #222 2px, #222 8px)',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: 'rgba(0, 0, 0, 0.7)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 100,
+    zIndex: 1000,
     padding: '20px',
   },
   modal: {
-    background: '#FFF8DC',
-    borderRadius: '8px',
-    padding: '28px',
-    maxWidth: '380px',
+    background: '#fff',
+    borderRadius: '16px',
+    padding: '32px',
+    maxWidth: '500px',
     width: '100%',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+  },
+  bingoTitle: {
+    fontSize: '36px',
+    fontWeight: '800',
+    color: '#4CAF50',
+    margin: '0 0 16px 0',
     textAlign: 'center',
-    border: '8px solid #000',
-    boxShadow: '12px 12px 0 #000',
-    position: 'relative',
-  },
-  starburst: {
-    width: '140px',
-    height: '140px',
-    background: '#FF3333',
-    border: '6px solid #000',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: '0 auto 20px',
-    boxShadow: '6px 6px 0 #000',
-    position: 'relative',
-  },
-  starburstInner: {
-    width: '110px',
-    height: '110px',
-    background: '#FFD700',
-    border: '4px solid #000',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bingoText: {
-    fontSize: '28px',
-    fontWeight: 'bold',
-    color: '#FF0000',
-    textShadow: '3px 3px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000',
   },
   victoryText: {
-    fontSize: '15px',
-    color: '#000',
-    marginBottom: '20px',
-    fontWeight: 'bold',
-    fontFamily: '"Arial Black", sans-serif',
-    lineHeight: 1.4,
+    fontSize: '18px',
+    color: '#2c3e50',
+    marginBottom: '24px',
+    textAlign: 'center',
+    fontWeight: '600',
+    lineHeight: 1.5,
+  },
+  comicDisplay: {
+    marginBottom: '24px',
+    textAlign: 'center',
+  },
+  comicUnlockedText: {
+    fontSize: '16px',
+    color: '#546e7a',
+    marginBottom: '12px',
+    fontWeight: '600',
+  },
+  comicImage: {
+    width: '100%',
+    maxHeight: '300px',
+    objectFit: 'contain',
+    borderRadius: '8px',
+    border: '3px solid #e0e0e0',
+    marginBottom: '12px',
+  },
+  comicName: {
+    fontSize: '18px',
+    fontWeight: '700',
+    color: '#2c3e50',
   },
   select: {
     width: '100%',
     padding: '12px',
-    fontSize: '12px',
-    borderRadius: '0',
-    border: '4px solid #000',
+    fontSize: '14px',
+    border: '2px solid #e0e0e0',
+    borderRadius: '8px',
     marginBottom: '12px',
     cursor: 'pointer',
-    fontWeight: 'bold',
-    fontFamily: '"Arial Black", sans-serif',
-    background: '#FFF',
-    boxShadow: '4px 4px 0 #000',
+    fontWeight: '600',
+    fontFamily: 'inherit',
   },
   shareButton: {
     width: '100%',
-    padding: '16px',
-    fontSize: '18px',
-    fontWeight: 'bold',
-    background: '#00BFFF',
-    color: '#000',
-    border: '4px solid #000',
-    borderRadius: '0',
+    padding: '14px',
+    fontSize: '16px',
+    fontWeight: '700',
+    background: '#00B8D4',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
     cursor: 'pointer',
-    marginBottom: '10px',
-    fontFamily: '"Bangers", cursive',
-    letterSpacing: '2px',
-    boxShadow: '5px 5px 0 #000',
-    transition: 'transform 0.1s',
+    marginBottom: '12px',
+    transition: 'all 0.2s',
+    boxShadow: '0 4px 12px rgba(0, 184, 212, 0.3)',
   },
-  resetButton: {
+  playAgainButton: {
     width: '100%',
     padding: '14px',
     fontSize: '16px',
-    background: '#FFD700',
-    color: '#000',
-    border: '4px solid #000',
-    borderRadius: '0',
+    fontWeight: '700',
+    background: '#fff',
+    color: '#2c3e50',
+    border: '2px solid #e0e0e0',
+    borderRadius: '8px',
     cursor: 'pointer',
-    fontFamily: '"Bangers", cursive',
-    boxShadow: '5px 5px 0 #000',
+    transition: 'all 0.2s',
   },
-  footer: {
+  galleryTitle: {
+    fontSize: '28px',
+    fontWeight: '800',
+    color: '#2c3e50',
+    margin: '0 0 8px 0',
     textAlign: 'center',
-    marginTop: '20px',
-    position: 'relative',
-    zIndex: 5,
   },
-  footerText: {
-    fontSize: '14px',
-    color: '#FFF',
+  gallerySubtitle: {
+    fontSize: '16px',
+    color: '#546e7a',
+    marginBottom: '24px',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  comicGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+    gap: '16px',
+    marginBottom: '24px',
+  },
+  comicThumbnailContainer: {
+    textAlign: 'center',
+  },
+  comicThumbnail: {
+    width: '100%',
+    height: '150px',
+    objectFit: 'cover',
+    borderRadius: '8px',
+    border: '3px solid #e0e0e0',
+    marginBottom: '8px',
+  },
+  lockedComic: {
+    width: '100%',
+    height: '150px',
+    background: '#f5f5f5',
+    borderRadius: '8px',
+    border: '3px solid #e0e0e0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: '8px',
+  },
+  lockIcon: {
+    fontSize: '48px',
+    opacity: 0.3,
+  },
+  comicThumbnailName: {
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#2c3e50',
     margin: 0,
-    letterSpacing: '1px',
-    fontFamily: '"Arial Black", Arial, sans-serif',
   },
-  disclaimer: {
-    fontSize: '18px',
-    color: '#FFD700',
-    fontWeight: 'bold',
-    margin: '10px 0 14px 0',
-    letterSpacing: '2px',
-    fontFamily: '"Arial Black", Arial, sans-serif',
-  },
-  resetSmall: {
-    padding: '10px 20px',
-    fontSize: '14px',
-    background: 'transparent',
-    color: '#FFF',
-    border: '3px solid #FFF',
-    borderRadius: '0',
+  closeButton: {
+    width: '100%',
+    padding: '14px',
+    fontSize: '16px',
+    fontWeight: '700',
+    background: '#2c3e50',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
     cursor: 'pointer',
-    fontFamily: '"Arial Black", Arial, sans-serif',
-    boxShadow: '3px 3px 0 rgba(255,255,255,0.3)',
+    transition: 'all 0.2s',
   },
 };
