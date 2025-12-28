@@ -624,7 +624,6 @@ const styles = {
     borderRight: '10px solid #000',
     zIndex: 1,
   },
-  },
   modalOverlay: {
     position: 'fixed',
     top: 0, left: 0, right: 0, bottom: 0,
